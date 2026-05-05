@@ -32,4 +32,3 @@ class RobotDrive:
     def drive(self, left_speed, right_speed):
         self.motor_l.set_speed(left_speed)
         self.motor_r.set_speed(right_speed)
-#       https://github.com/TuanHungcoder/micromouse
