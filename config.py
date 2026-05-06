@@ -4,13 +4,13 @@ SENSOR_PINS = [34, 35, 36, 39]
 IR_EN_PIN = 27 # Chân bật/tắt LED hồng ngoại (nối với chân IR của module)
 
 # --- CẤU HÌNH CHÂN MOTOR DRIVER (TB6612) ---
-M_L_IN1 = 5
-M_L_IN2 = 17
-M_L_PWM = 16
+MOT_L_PWM = 16  # Chân băm xung tốc độ
+MOT_L_DIR1 = 5 # Chân chiều quay 1
+MOT_L_DIR2 = 16 # Chân chiều quay 2
 
-M_R_IN1 = 18
-M_R_IN2 = 19
-M_R_PWM = 21
+MOT_R_PWM = 21  
+MOT_R_DIR1 = 18
+MOT_R_DIR2 = 19
 
 # --- THÔNG SỐ PID & TỐC ĐỘ ---
 # Tốc độ nền (0 - 1023) - Tăng lên khi xe đã chạy ổn định
@@ -21,6 +21,10 @@ ENC_L_A = 4
 ENC_L_B = 15
 ENC_R_A = 22
 ENC_R_B = 23
+
+SIDE_WALL_THRESHOLD = 500  # Lớn hơn số này coi như có tường bên
+FRONT_WALL_THRESHOLD = 800 # Lớn hơn số này coi như đâm tường trước
+TARGET_WALL_VAL = 1200     # Giá trị chuẩn khi xe cách đều 2 tường
 
 # Thông số vật lý (Cần hiệu chỉnh dựa trên bánh xe thực tế)
 TICKS_PER_REV = 360 # Số xung trên mỗi vòng quay của motor

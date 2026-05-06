@@ -2,33 +2,50 @@ from machine import Pin, PWM
 import config
 
 class Motor:
-    def __init__(self, pin_in1, pin_in2, pin_pwm):
-        self.in1 = Pin(pin_in1, Pin.OUT)
-        self.in2 = Pin(pin_in2, Pin.OUT)
-        self.pwm = PWM(Pin(pin_pwm))
-        self.pwm.freq(20000) # Tần số 20kHz để motor không kêu o o
+    def __init__(self, pwm_pin, dir_pin1, dir_pin2):
+        # Khởi tạo PWM với tần số 20kHz (20000 Hz) để motor chạy êm, không bị nhiễu âm thanh
+        self.pwm = PWM(Pin(pwm_pin), freq=20000)
+        self.pwm.duty(0) # Mặc định cho dừng
+        
+        # 2 chân điều hướng cho mạch cầu H (ví dụ: TB6612FNG, DRV8833, L298N)
+        self.dir1 = Pin(dir_pin1, Pin.OUT)
+        self.dir2 = Pin(dir_pin2, Pin.OUT)
 
     def set_speed(self, speed):
-        # Giới hạn tốc độ trong khoảng -1023 đến 1023
-        speed = max(min(speed, 1023), -1023)
+        """
+        Nhận giá trị tốc độ từ -100 (lùi tối đa) đến 100 (tiến tối đa)
+        """
+        # 1. Xử lý chiều quay
+        if speed > 0:
+            self.dir1.value(1)
+            self.dir2.value(0)
+        elif speed < 0:
+            self.dir1.value(0)
+            self.dir2.value(1)
+        else:
+            # Phanh động cơ (Brake)
+            self.dir1.value(0)
+            self.dir2.value(0)
+            
+        # 2. Xử lý tốc độ PWM
+        # Ép tốc độ nằm trong khoảng an toàn từ 0 đến 100
+        abs_speed = max(0, min(100, abs(speed)))
         
-        if speed > 0:    # Tiến
-            self.in1.value(1)
-            self.in2.value(0)
-        elif speed < 0:  # Lùi
-            self.in1.value(0)
-            self.in2.value(1)
-        else:            # Dừng
-            self.in1.value(0)
-            self.in2.value(0)
+        # Chuyển đổi thang đo: % (0-100) sang Duty Cycle của ESP32 (0-1023)
+        duty_val = int((abs_speed / 100.0) * 1023)
+        self.pwm.duty(duty_val)
 
-        self.pwm.duty(int(abs(speed)))
-
-class RobotDrive:
+class MotorController:
     def __init__(self):
-        self.motor_l = Motor(config.M_L_IN1, config.M_L_IN2, config.M_L_PWM)
-        self.motor_r = Motor(config.M_R_IN1, config.M_R_IN2, config.M_R_PWM)
-
+        # Khởi tạo 2 motor trái và phải dựa trên config
+        self.left = Motor(config.MOT_L_PWM, config.MOT_L_DIR1, config.MOT_L_DIR2)
+        self.right = Motor(config.MOT_R_PWM, config.MOT_R_DIR1, config.MOT_R_DIR2)
+        
     def drive(self, left_speed, right_speed):
-        self.motor_l.set_speed(left_speed)
-        self.motor_r.set_speed(right_speed)
+        """Hàm tiện ích để điều khiển cả 2 bánh cùng lúc"""
+        self.left.set_speed(left_speed)
+        self.right.set_speed(right_speed)
+        
+    def stop(self):
+        """Dừng khẩn cấp"""
+        self.drive(0, 0)

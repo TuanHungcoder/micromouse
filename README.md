@@ -9,6 +9,8 @@ Dự án phát triển robot giải mê cung sử dụng vi điều khiển ESP3
 *   **`pid.py`**: Bộ điều khiển bám tường (Wall following).
 *   **`maze.py`**: Thuật toán giải mê cung (Flood Fill).
 *   **`main.py`**: Vòng lặp điều khiển chính (Hardware Timer 10ms).
+*   **`encoders.py`**: Đo tốc độ xe.
+
 
 ## 🚀 Quy trình làm việc nhóm
 1.  **Pull:** Luôn chạy `git pull` trước khi bắt đầu code.
