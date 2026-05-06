@@ -10,7 +10,10 @@ Dự án phát triển robot giải mê cung sử dụng vi điều khiển ESP3
 *   **`maze.py`**: Thuật toán giải mê cung (Flood Fill).
 *   **`main.py`**: Vòng lặp điều khiển chính (Hardware Timer 10ms).
 *   **`encoders.py`**: Đo tốc độ xe.
+<<<<<<< HEAD
 
+=======
+>>>>>>> 62ddd11336ea6d3c91cc8f4e8489fc2636c7ac1d
 
 ## 🚀 Quy trình làm việc nhóm
 1.  **Pull:** Luôn chạy `git pull` trước khi bắt đầu code.
