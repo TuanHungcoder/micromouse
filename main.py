@@ -1,43 +1,75 @@
-from machine import Timer
+import time
 import config
 from sensors import SensorArray
-from motors import RobotDrive
+from encoders import SystemEncoders
+from motors import MotorController
 from pid import PID
-import micropython
+from maze import MazeSolver
 
-micropython.alloc_emergency_exception_buf(100)
-
-sensors = SensorArray()
-drive = RobotDrive()
-steer_pid = PID(config.KP_STEER, config.KI_STEER, config.KD_STEER)
-
-@micropython.native
-def control_loop(timer):
-    # 1. Cập nhật mảng giá trị cảm biến
-    sensors.read_sensors()
+def setup():
+    print("Đang khởi động hệ thống Micromouse...")
+    # Khởi tạo các module
+    sensors = SensorArray()
+    encoders = SystemEncoders()
+    motors = MotorController()
     
-    # 2. Lấy sai số hướng đi
-    error = sensors.get_steering_error()
+    # Bộ PID (Thông số này cần bạn chỉnh lại lúc chạy thực tế)
+    wall_pid = PID(kp=1.5, ki=0.0, kd=0.5)
+    maze = MazeSolver()
+    
+    return sensors, encoders, motors, wall_pid, maze
 
-    # 3. Tính toán góc lái (Steer)
-    steer_correction = steer_pid.compute(error, dt=0.01)
+def main():
+    sensors, encoders, motors, wall_pid, maze = setup()
+    
+    print("Đã sẵn sàng! Rút tay ra trong 3 giây...")
+    time.sleep(3)
+    
+    # Biến theo dõi thời gian cho PID
+    last_time = time.ticks_ms()
 
-    # 4. Mix tốc độ
-    # Lệch sang trái (error dương) -> bẻ lái sang phải (bánh trái nhanh, bánh phải chậm)
-    left_speed = config.BASE_SPEED + steer_correction
-    right_speed = config.BASE_SPEED - steer_correction
+    try:
+        while True:
+            # Tính thời gian trôi qua (dt) cho hàm PID
+            current_time = time.ticks_ms()
+            dt = time.ticks_diff(current_time, last_time) / 1000.0 # Đổi ra giây
+            
+            # Tránh chia cho 0 nếu vòng lặp chạy quá nhanh
+            if dt <= 0:
+                dt = 0.001 
+            last_time = current_time
 
-    # 5. Xuất PWM
-    drive.drive(left_speed, right_speed)
+            # 1. Đọc mắt cảm biến
+            sensors.read_sensors()
+            has_left, has_front, has_right = sensors.check_walls_for_maze()
+            
+            # 2. Xử lý vật cản phía trước
+            if has_front and (sensors.values[1] + sensors.values[2] > 2000):
+                # Nếu đâm tường -> Dừng khẩn cấp
+                motors.stop()
+                print("Có tường phía trước! Đang tính toán quay đầu...")
+                # Tương lai sẽ gọi hàm quay xe ở đây
+                time.sleep(1) 
+                continue
 
-print("Micromouse Wall Following Started...")
-timer = Timer(0)
-timer.init(period=10, mode=Timer.PERIODIC, callback=control_loop)
+            # 3. Tính toán giữ thăng bằng (PID)
+            error = sensors.get_steering_error()
+            correction = wall_pid.compute(error, dt)
 
-try:
-    while True:
-        # Ở đây sau này bạn sẽ viết logic nhận diện ngã tư, đếm ô Encoder
-        pass
-except KeyboardInterrupt:
-    timer.deinit()
-    drive.drive(0, 0)
+            # 4. Truyền lệnh xuống Motor
+            # Base speed là tốc độ đi thẳng mặc định (ví dụ: 40%)
+            left_speed = config.BASE_SPEED + correction
+            right_speed = config.BASE_SPEED - correction
+            
+            motors.drive(left_speed, right_speed)
+
+            # Nghỉ 10ms để giải phóng CPU (Tạo chu kỳ vòng lặp ổn định)
+            time.sleep_ms(10)
+            
+    except KeyboardInterrupt:
+        # Nhấn Ctrl+C trên Pymakr/Thonny sẽ nhảy vào đây
+        motors.stop()
+        print("Đã dừng khẩn cấp!")
+
+if __name__ == "__main__":
+    main()
