@@ -2,7 +2,26 @@
 # Điền chân GPIO của ESP32 tương ứng nối với D1 -> D8 của module
 SENSOR_PINS = [34, 35, 36, 39] 
 IR_EN_PIN = 27 # Chân bật/tắt LED hồng ngoại (nối với chân IR của module)
+# ================= TB6612 =================
+# Motor trái - kênh A
+PWMA = PWM(Pin(25), freq=1000)
+AIN1 = Pin(26, Pin.OUT)
+AIN2 = Pin(27, Pin.OUT)
 
+# Motor phải - kênh B
+PWMB = PWM(Pin(14), freq=1000)
+BIN1 = Pin(12, Pin.OUT)
+BIN2 = Pin(13, Pin.OUT)
+
+
+# ================= Encoder =================
+# Motor trái
+ENC_L_A = Pin(34, Pin.IN)
+ENC_L_B = Pin(35, Pin.IN)
+
+# Motor phải
+ENC_R_A = Pin(32, Pin.IN)
+ENC_R_B = Pin(33, Pin.IN)
 
 
 SIDE_WALL_THRESHOLD = 500  # Lớn hơn số này coi như có tường bên
