@@ -1,5 +1,5 @@
 # --- Cảm biến IR ---
-SENSOR_PINS = [34, 35, 36, 39]
+SENSOR_PINS = [36, 34, 39, 35]  # 34 35 36 39 là các chân cảm biến IR
 IR_EN_PIN = 27
 
 # --- Motor TB6612 ---
