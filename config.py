@@ -1,3 +1,4 @@
+from machine import Pin, PWM
 # --- CẤU HÌNH CHÂN SENSOR (Module 4 mắt) ---
 # Điền chân GPIO của ESP32 tương ứng nối với D1 -> D8 của module
 SENSOR_PINS = [34, 35, 36, 39] 
