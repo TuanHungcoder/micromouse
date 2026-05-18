@@ -30,5 +30,5 @@ class RobotDrive:
         self.motor_r = Motor(config.M_R_IN1, config.M_R_IN2, config.M_R_PWM)
 
     def drive(self, left_speed, right_speed):
-        self.motor_l.set_speed(left_speed)
-        self.motor_r.set_speed(right_speed)
+        self.motor_l.set_speed(left_speed * config.MOTOR_L_SIGN)
+        self.motor_r.set_speed(right_speed * config.MOTOR_R_SIGN)

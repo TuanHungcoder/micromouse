@@ -11,6 +11,11 @@ M_R_IN1 = 18
 M_R_IN2 = 19
 M_R_PWM = 21
 
+# Đảo chiều phần mềm: 1 = bình thường, -1 = đảo (khi 2 bánh cùng dấu mà 1 tiến 1 lùi)
+# Thường chỉ cần MOTOR_R_SIGN = -1 (motor phải lắp quay ngược motor trái)
+MOTOR_L_SIGN = 1
+MOTOR_R_SIGN = -1
+
 # --- Encoder ---
 ENC_L_A = 4
 ENC_L_B = 15
