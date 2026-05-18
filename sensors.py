@@ -40,16 +40,15 @@ class SensorArray:
         left_val = self.values[0]
         right_val = self.values[3]
         
-        # Giả sử có cả 2 tường
-        if left_val > 500 and right_val > 500: 
+        th = config.SIDE_WALL_THRESHOLD
+
+        if left_val > th and right_val > th:
             return left_val - right_val
-            
-        # Chỉ có tường trái
-        elif left_val > 500:
+
+        elif left_val > th:
             return left_val - config.TARGET_WALL_VAL
-            
-        # Chỉ có tường phải
-        elif right_val > 500:
+
+        elif right_val > th:
             return config.TARGET_WALL_VAL - right_val
             
         # Không có tường nào ở 2 bên

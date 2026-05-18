@@ -1,43 +1,106 @@
+import time
+import micropython
 from machine import Timer
+
 import config
 from sensors import SensorArray
 from motors import RobotDrive
+from encoders import SystemEncoders
 from pid import PID
-import micropython
+from maze import MazeSolver
 
-micropython.alloc_emergency_exception_buf(100)
+LOOP_S = config.LOOP_PERIOD_MS / 1000.0
 
-sensors = SensorArray()
-drive = RobotDrive()
-steer_pid = PID(config.KP_STEER, config.KI_STEER, config.KD_STEER)
 
-@micropython.native
-def control_loop(timer):
-    # 1. Cập nhật mảng giá trị cảm biến
-    sensors.read_sensors()
-    
-    # 2. Lấy sai số hướng đi
-    error = sensors.get_steering_error()
+def clamp_pwm(value):
+    v = int(value)
+    if v > 1023:
+        return 1023
+    if v < -1023:
+        return -1023
+    return v
 
-    # 3. Tính toán góc lái (Steer)
-    steer_correction = steer_pid.compute(error, dt=0.01)
 
-    # 4. Mix tốc độ
-    # Lệch sang trái (error dương) -> bẻ lái sang phải (bánh trái nhanh, bánh phải chậm)
-    left_speed = config.BASE_SPEED + steer_correction
-    right_speed = config.BASE_SPEED - steer_correction
+def clamp_steer(value):
+    m = config.MAX_STEER
+    if value > m:
+        return m
+    if value < -m:
+        return -m
+    return value
 
-    # 5. Xuất PWM
-    drive.drive(left_speed, right_speed)
 
-print("Micromouse Wall Following Started...")
-timer = Timer(0)
-timer.init(period=10, mode=Timer.PERIODIC, callback=control_loop)
+class Micromouse:
+    def __init__(self):
+        micropython.alloc_emergency_exception_buf(100)
 
-try:
-    while True:
-        # Ở đây sau này bạn sẽ viết logic nhận diện ngã tư, đếm ô Encoder
+        self.sensors = SensorArray()
+        self.drive = RobotDrive()
+        self.encoders = SystemEncoders()
+        self.maze = MazeSolver()
+        self.steer_pid = PID(config.KP, config.KI, config.KD)
+
+        self._timer = None
+        self.front_blocked = False
+
+    def _is_front_blocked(self):
+        front_avg = (self.sensors.values[1] + self.sensors.values[2]) / 2
+        return front_avg > config.FRONT_WALL_THRESHOLD
+
+    def _control_loop(self, timer):
+        self.sensors.read_sensors()
+
+        if self._is_front_blocked():
+            self.front_blocked = True
+            self.drive.drive(0, 0)
+            return
+
+        self.front_blocked = False
+        error = self.sensors.get_steering_error()
+        correction = clamp_steer(self.steer_pid.compute(error, LOOP_S))
+
+        left = clamp_pwm(config.BASE_SPEED + correction)
+        right = clamp_pwm(config.BASE_SPEED - correction)
+        self.drive.drive(left, right)
+
+    def start(self):
+        if self._timer is not None:
+            return
+        self._timer = Timer(0)
+        self._timer.init(
+            period=config.LOOP_PERIOD_MS,
+            mode=Timer.PERIODIC,
+            callback=self._control_loop,
+        )
+
+    def stop(self):
+        if self._timer is not None:
+            self._timer.deinit()
+            self._timer = None
+        self.drive.drive(0, 0)
+
+
+def main():
+    print("Khoi dong Micromouse...")
+    bot = Micromouse()
+
+    print("San sang! Rut tay khoi xe trong 3 giay...")
+    time.sleep(3)
+
+    bot.start()
+    print("Dang chay bam tuong (Ctrl+C de dung).")
+
+    try:
+        while True:
+            time.sleep(0.2)
+            if bot.front_blocked:
+                print("Tuong phia truoc! Dang dung...")
+    except KeyboardInterrupt:
         pass
-except KeyboardInterrupt:
-    timer.deinit()
-    drive.drive(0, 0)
+    finally:
+        bot.stop()
+        print("Da dung.")
+
+
+if __name__ == "__main__":
+    main()
