@@ -29,7 +29,6 @@ TARGET_WALL_VAL = 1200     # Giá trị chuẩn khi xe cách đều 2 tường
 # Thông số vật lý (Cần hiệu chỉnh dựa trên bánh xe thực tế)
 TICKS_PER_REV = 360 # Số xung trên mỗi vòng quay của motor
 WHEEL_DIAMETER = 34 # Đường kính bánh xe (mm)
-
 KP = 15.0  # Tăng cái này trước để xe phản ứng với vạch
 KI = 0.0   # Tạm thời để 0
 KD = 2.0   # Tăng cái này để giảm độ lắc (vẫy đuôi)
