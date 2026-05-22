@@ -1,43 +1,54 @@
-# --- Cảm biến IR ---
-SENSOR_PINS = [36, 34, 39, 35]  # 34 35 36 39 là các chân cảm biến IR
-IR_EN_PIN = 27
+# --- CẤU HÌNH CHÂN SENSOR (Module 4 mắt) ---
+# Điền chân GPIO của ESP32 tương ứng với từng mắt cảm biến
+SENSOR_L_PIN = 35   # Mắt tường TRÁI
+SENSOR_FL_PIN = 34  # Mắt chéo TRƯỚC - TRÁI
+SENSOR_FR_PIN = 39  # Mắt chéo TRƯỚC - PHẢI
+SENSOR_R_PIN = 36   # Mắt tường PHẢI
+IR_EN_PIN = 27 # Chân bật/tắt LED hồng ngoại (nối với chân IR của module)
 
-# --- Motor TB6612 ---
-M_L_IN1 = 5
-M_L_IN2 = 17
-M_L_PWM = 16
+# --- CẤU HÌNH CHÂN MOTOR DRIVER (TB6612) ---
+MOT_L_PWM = 21  
+MOT_L_DIR1 = 19 
+MOT_L_DIR2 = 18 
 
-M_R_IN1 = 18
-M_R_IN2 = 19
-M_R_PWM = 21
+MOT_R_PWM = 16  
+MOT_R_DIR1 = 5
+MOT_R_DIR2 = 17
 
-# Đảo chiều phần mềm: 1 = bình thường, -1 = đảo (khi 2 bánh cùng dấu mà 1 tiến 1 lùi)
-# Thường chỉ cần MOTOR_R_SIGN = -1 (motor phải lắp quay ngược motor trái)
-MOTOR_L_SIGN = 1
-MOTOR_R_SIGN = -1
+# --- THÔNG SỐ PID & TỐC ĐỘ ---
+# Tốc độ nền (0 - 100) - Tăng lên khi xe đã chạy ổn định
+BASE_SPEED = 50
 
-# --- Encoder ---
-ENC_L_A = 4
-ENC_L_B = 15
-ENC_R_A = 22
-ENC_R_B = 23
+# --- CHÂN ENCODER ---
+ENC_L_A = 23
+ENC_L_B = 22
+ENC_R_A = 4 # Đảo để đồng bộ với bánh phải
+ENC_R_B = 15
 
-# --- Ngưỡng cảm biến ---
-SIDE_WALL_THRESHOLD = 500
-FRONT_WALL_THRESHOLD = 800
-TARGET_WALL_VAL = 1200
+SIDE_WALL_THRESHOLD = 500  # Lớn hơn số này coi như có tường bên
+FRONT_WALL_THRESHOLD = 800 # Lớn hơn số này coi như đâm tường trước
+TARGET_WALL_VAL = 1200     # Giá trị chuẩn khi xe cách đều 2 tường
 
-# --- Điều khiển (PWM duty 0–1023) ---
-BASE_SPEED = 400
-MAX_STEER = 350
+# Thông số vật lý (Cần hiệu chỉnh dựa trên bánh xe thực tế)
+GEAR_RATIO = 100          # Tỷ số truyền của hộp giảm tốc
+MOTOR_BASE_TICKS = 7      # Số xung trên 1 vòng quay gốc của động cơ (Bạn vừa đo ra chính xác loại 7 xung)
+# Số xung trên mỗi vòng quay của BÁNH XE (Do ngắt bắt cả sườn lên/xuống nên nhân 2)
+TICKS_PER_REV = 1400      # Tương đương: 7 * 2 * 100 = 1400
 
-KP = 0.8
-KI = 0.0
-KD = 0.15
+WHEEL_DIAMETER = 34 # Đường kính bánh xe (mm)
+WHEEL_DISTANCE = 105 # Khoảng cách giữa 2 bánh xe (mm) - Dùng để tính góc quay
+CELL_SIZE = 150     # Chiều dài 1 ô vuông của mê cung (mm)
 
-# --- Vật lý ---
-TICKS_PER_REV = 360
-WHEEL_DIAMETER = 34
+# --- THÔNG SỐ PID BÁM TƯỜNG (Dùng Cảm biến hồng ngoại) ---
+KP = 15.0  # Tăng cái này trước để xe phản ứng với vạch
+KI = 0.0   # Tạm thời để 0
+KD = 2.0   # Tăng cái này để giảm độ lắc (vẫy đuôi)
 
-# Chu kỳ vòng lặp điều khiển (ms)
-LOOP_PERIOD_MS = 10
+# --- CẤU HÌNH WIFI & ĐIỀU KHIỂN ---
+WIFI_SSID = "Micromouse"
+WIFI_PASSWORD = "12345678"
+
+# Biến trạng thái để xác định chế độ điều khiển
+# True: Chạy tự động (thuật toán mê cung)
+# False: Chạy thủ công (qua Web)
+AUTO_MODE_ENABLED = True

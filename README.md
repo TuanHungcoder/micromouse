@@ -7,8 +7,12 @@ Dự án phát triển robot giải mê cung sử dụng vi điều khiển ESP3
 *   **`sensors.py`**: Xử lý 4 cảm biến IR Analog và thuật toán khử nhiễu.
 *   **`motors.py`**: Điều khiển động cơ PWM và các hàm di chuyển cơ bản.
 *   **`pid.py`**: Bộ điều khiển bám tường (Wall following).
-*   **`maze.py`**: Thuật toán giải mê cung (Flood Fill).
-*   **`main.py`**: Vòng lặp điều khiển chính (Hardware Timer 10ms).
+*   **`navigation.py`**: Quản lý điều hướng nâng cao và tạo quỹ đạo (profile vận tốc, quay sớm).
+*   **`maze.py`**: Thuật toán giải mê cung (Flood Fill/DFS) và bản đồ.
+*   **`webserver.py`**: Máy chủ web dùng cho điều khiển từ xa, theo dõi trạng thái và cấu hình PID.
+*   **`main.py`**: Vòng lặp điều khiển chính (Hardware Timer 10ms, Threading).
+*   **`encoders.py`**: Đọc encoder để đo tốc độ và quãng đường xe.
+*   **`calibrate_encoder.py`**: Script hỗ trợ hiệu chuẩn và kiểm tra encoder.
 
 ## 🚀 Quy trình làm việc nhóm
 1.  **Pull:** Luôn chạy `git pull` trước khi bắt đầu code.
@@ -19,10 +23,6 @@ Dự án phát triển robot giải mê cung sử dụng vi điều khiển ESP3
 ## 📌 Lưu ý kỹ thuật
 *   Tần số PWM Motor: 20kHz.
 *   Chu kỳ ngắt PID: 10ms.
+*   Hỗ trợ đa luồng (Threading) cho web server và bộ điều khiển chính.
 *   Ngưỡng cảm biến nhận tường (Threshold): Cần hiệu chỉnh lại khi thay đổi môi trường ánh sáng.
 
-Đây là chu kỳ bạn sẽ lặp đi lặp lại hàng chục lần mỗi ngày.
-git pull: LUÔN LUÔN chạy lệnh này đầu buổi code để lấy code mới nhất mà bạn mình đã up lên.
-git add .: Gom tất cả những thay đổi bạn vừa sửa (ví dụ: vừa chỉnh xong $K_p$ trong config.py).
-git commit -m "Mô tả ngắn gọn": Đóng gói các thay đổi và đặt tên cho nó (ví dụ: "Fix lỗi quay 90 độ").
-git push: Đẩy gói code đó lên GitHub cho bạn mình thấy.
