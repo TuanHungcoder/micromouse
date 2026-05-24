@@ -23,7 +23,7 @@ class Motor:
             self.dir1.value(0)
             self.dir2.value(1)
         else:
-            # Phanh động cơ (Brake)
+            # Trả lại chế độ thả trôi (Coast) để giữ quán tính khi cua 90 độ
             self.dir1.value(0)
             self.dir2.value(0)
             
@@ -43,9 +43,19 @@ class MotorController:
         
     def drive(self, left_speed, right_speed):
         """Hàm tiện ích để điều khiển cả 2 bánh cùng lúc"""
-        self.left.set_speed(left_speed)
-        self.right.set_speed(right_speed)
+        self.left.set_speed(left_speed * config.MOTOR_LEFT_MULTIPLIER)
+        self.right.set_speed(right_speed * config.MOTOR_RIGHT_MULTIPLIER)
         
     def stop(self):
-        """Dừng khẩn cấp"""
+        """Dừng thả trôi (Coast)"""
         self.drive(0, 0)
+        
+    def brake(self):
+        """Phanh cứng khẩn cấp (Short Brake) để triệt tiêu quán tính"""
+        self.left.dir1.value(1)
+        self.left.dir2.value(1)
+        self.left.pwm.duty(1023)
+        
+        self.right.dir1.value(1)
+        self.right.dir2.value(1)
+        self.right.pwm.duty(1023)

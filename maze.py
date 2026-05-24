@@ -1,5 +1,5 @@
-# Mặc định kích thước mê cung Micromouse tiêu chuẩn là 16x16, sửa thành 5x5
-MAZE_SIZE = 5
+# Mặc định kích thước mê cung Micromouse tiêu chuẩn là 16x16, sửa thành 4x4
+MAZE_SIZE = 4
 
 # Quy ước hướng bằng Bitmask (Để tiết kiệm RAM)
 # Dùng các số mũ của 2 (1, 2, 4, 8) để có thể cộng dồn mà không bị trùng
@@ -34,12 +34,8 @@ class MazeSolver:
         self.init_boundary_walls()
 
     def init_boundary_walls(self):
-        """Khởi tạo tường bao quanh mê cung 5x5 để xe không bao giờ chạy ra ngoài"""
-        for i in range(MAZE_SIZE):
-            self.set_wall(i, 0, SOUTH)
-            self.set_wall(i, MAZE_SIZE - 1, NORTH)
-            self.set_wall(0, i, WEST)
-            self.set_wall(MAZE_SIZE - 1, i, EAST)
+        """Đã tắt: Không vẽ sẵn tường biên, bắt buộc xe phải dùng cảm biến để tự nhận diện."""
+        pass
 
     def init_distances(self):
         """

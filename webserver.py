@@ -131,33 +131,105 @@ HTML_PAGE = """<!DOCTYPE html>
         }
         .btn-reset:active { transform: scale(0.95); }
 
-        /* Controls */
-        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; max-width: 250px; margin: 0 auto; }
-        .empty { visibility: hidden; }
-        .button {
-            padding: 20px;
-            font-size: 20px;
-            cursor: pointer;
-            color: #fff;
-            background-color: var(--btn-bg);
-            border: none;
-            border-radius: 12px;
+        /* Control Panel */
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            max-width: 300px;
+            margin: 0 auto 25px auto;
+            background-color: var(--cell-bg);
+            padding: 15px;
+            border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: all 0.1s;
-            user-select: none;
-            -webkit-user-select: none;
         }
-        .button:active { background-color: var(--btn-hover); transform: scale(0.95); }
-        .stop { background-color: #ef4444; }
-        .stop:active { background-color: #dc2626; }
+        .control-title {
+            grid-column: 1 / 4;
+            margin-top: 0;
+            color: #f59e0b;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        .btn-ctrl {
+            background: #334155;
+            color: white;
+            border: none;
+            padding: 15px 0;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+        .btn-ctrl:active { transform: scale(0.95); background: #475569; }
+        .btn-ctrl.stop { background: #e11d48; }
+        .btn-ctrl.up { grid-column: 2; background: #3b82f6;}
+        .btn-ctrl.left { grid-column: 1; }
+        .btn-ctrl.right { grid-column: 3; }
+        .btn-ctrl.down { grid-column: 2; }
+
+        /* PID Tuner */
+        .pid-container {
+            background-color: var(--cell-bg);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .pid-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .pid-row label {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .pid-row input {
+            width: 80px;
+            padding: 5px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #475569;
+            background-color: #0f172a;
+            color: #fff;
+            text-align: center;
+        }
+        .btn-save-pid {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            font-weight: bold;
+            padding: 8px 20px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .btn-save-pid:active { transform: scale(0.95); }
         .status { margin-top: 20px; color: #94a3b8; font-size: 14px; }
     </style>
 </head>
 <body>
-    <h2>MICROMOUSE 5x5 LIVE MAP</h2>
+    <h2>MICROMOUSE 4x4 LIVE MAP</h2>
     
     <div id="maze-container">
         <!-- Grid will be generated here -->
+    </div>
+    
+    <div style="max-width: 300px; margin: 0 auto 25px auto; background: var(--cell-bg); padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+        <h3 style="margin-top:0; color:#10b981; font-size:16px;">📊 KẾT QUẢ ĐO CẢM BIẾN</h3>
+        <div style="display: flex; justify-content: space-between; font-family: monospace; font-size: 15px;">
+            <div style="color: #60a5fa; text-align: center;"><b>TRÁI</b><br><span id="s-l">0</span></div>
+            <div style="color: #fbbf24; text-align: center;"><b>C-TRÁI</b><br><span id="s-fl">0</span></div>
+            <div style="color: #fbbf24; text-align: center;"><b>C-PHẢI</b><br><span id="s-fr">0</span></div>
+            <div style="color: #60a5fa; text-align: center;"><b>PHẢI</b><br><span id="s-r">0</span></div>
+        </div>
     </div>
     
     <div>
@@ -165,25 +237,41 @@ HTML_PAGE = """<!DOCTYPE html>
         <br>
         <button class="btn-reset" onclick="resetMaze()">🔄 XÓA BẢN ĐỒ</button>
     </div>
+
+    <div class="control-grid">
+        <h3 class="control-title">ĐIỀU KHIỂN CĂN CHỈNH</h3>
+        <div></div>
+        <button class="btn-ctrl up" onclick="sendCmd('straight')">↑ Đi 4 Ô</button>
+        <div></div>
+        <button class="btn-ctrl left" onclick="sendCmd('left')">↰ Quay Trái</button>
+        <button class="btn-ctrl stop" onclick="sendCmd('stop')">⏹ Dừng</button>
+        <button class="btn-ctrl right" onclick="sendCmd('right')">↱ Quay Phải</button>
+        <div></div>
+        <button class="btn-ctrl down" onclick="sendCmd('around')">↻ Quay Đầu</button>
+        <div></div>
+    </div>
     
-    <div class="grid">
-        <div class="empty"></div>
-        <button class="button" onmousedown="sendCmd('forward')" onmouseup="sendCmd('stop')" ontouchstart="sendCmd('forward')" ontouchend="sendCmd('stop')">▲</button>
-        <div class="empty"></div>
-        
-        <button class="button" onmousedown="sendCmd('left')" onmouseup="sendCmd('stop')" ontouchstart="sendCmd('left')" ontouchend="sendCmd('stop')">◄</button>
-        <button class="button stop" onclick="sendCmd('stop')">■</button>
-        <button class="button" onmousedown="sendCmd('right')" onmouseup="sendCmd('stop')" ontouchstart="sendCmd('right')" ontouchend="sendCmd('stop')">►</button>
-        
-        <div class="empty"></div>
-        <button class="button" onmousedown="sendCmd('backward')" onmouseup="sendCmd('stop')" ontouchstart="sendCmd('backward')" ontouchend="sendCmd('stop')">▼</button>
-        <div class="empty"></div>
+    <div class="pid-container">
+        <h3 style="margin-top:0; color:#3b82f6;">TINH CHỈNH PID</h3>
+        <div class="pid-row">
+            <label>KP:</label>
+            <input type="number" id="inputKP" step="0.5" value="0.0">
+        </div>
+        <div class="pid-row">
+            <label>KD:</label>
+            <input type="number" id="inputKD" step="0.5" value="0.0">
+        </div>
+        <div class="pid-row">
+            <label>L_MULT:</label>
+            <input type="number" id="inputLMult" step="0.01" value="1.0">
+        </div>
+        <button class="btn-save-pid" onclick="savePID()">💾 LƯU THÔNG SỐ</button>
     </div>
     
     <div class="status" id="statusText">Đang tải bản đồ...</div>
     
     <script>
-        const MAZE_SIZE = 5;
+        const MAZE_SIZE = 4;
         
         function initMaze() {
             const container = document.getElementById('maze-container');
@@ -241,6 +329,14 @@ HTML_PAGE = """<!DOCTYPE html>
                         robot.className = `robot heading-${data.heading}`;
                         currentCell.appendChild(robot);
                     }
+                    
+                    if (data.sensors) {
+                        document.getElementById('s-l').innerText = data.sensors[0];
+                        document.getElementById('s-fl').innerText = data.sensors[1];
+                        document.getElementById('s-fr').innerText = data.sensors[2];
+                        document.getElementById('s-r').innerText = data.sensors[3];
+                    }
+                    
                     document.getElementById('statusText').innerText = "Cập nhật thành công!";
                 })
                 .catch(e => {
@@ -248,9 +344,30 @@ HTML_PAGE = """<!DOCTYPE html>
                 });
         }
 
-        function sendCmd(cmd) {
-            document.getElementById('statusText').innerText = "Đang gửi lệnh: " + cmd;
-            fetch('/' + cmd).catch(e => console.log(e));
+        function loadPID() {
+            fetch('/get_pid')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('inputKP').value = data.kp;
+                    document.getElementById('inputKD').value = data.kd;
+                    if(data.lmult !== undefined) document.getElementById('inputLMult').value = data.lmult;
+                })
+                .catch(e => console.log(e));
+        }
+
+        function savePID() {
+            const kp = document.getElementById('inputKP').value;
+            const kd = document.getElementById('inputKD').value;
+            const lmult = document.getElementById('inputLMult').value;
+            document.getElementById('statusText').innerText = "Đang lưu thông số...";
+            fetch(`/set_pid?kp=${kp}&kd=${kd}&lmult=${lmult}`)
+                .then(r => r.text())
+                .then(text => {
+                    document.getElementById('statusText').innerText = "Lưu thông số thành công!";
+                })
+                .catch(e => {
+                    document.getElementById('statusText').innerText = "Lỗi khi lưu PID!";
+                });
         }
 
         function startMaze() {
@@ -265,10 +382,18 @@ HTML_PAGE = """<!DOCTYPE html>
             }
         }
 
+        function sendCmd(action) {
+            document.getElementById('statusText').innerText = "Đang gửi lệnh...";
+            fetch('/cmd?action=' + action)
+                .then(r => { document.getElementById('statusText').innerText = "Đã gửi lệnh: " + action; })
+                .catch(e => { document.getElementById('statusText').innerText = "Lỗi gửi lệnh!"; });
+        }
+
         // Khởi tạo
         initMaze();
-        // Cập nhật map mỗi 500ms
-        setInterval(updateMap, 500);
+        loadPID();
+        // Cập nhật map mỗi 2000ms (2 giây) để tránh quá tải bộ đệm Socket (lỗi TIME_WAIT của ESP32)
+        setInterval(updateMap, 2000);
     </script>
 </body>
 </html>
@@ -301,7 +426,7 @@ def setup_ap():
     print('=====================================')
     return True
 
-def start_server(motors, maze):
+def start_server(motors, maze, pid, command_queue=None):
     if not setup_ap():
         print("Web Server không thể khởi động vì lỗi WiFi.")
         return
@@ -312,9 +437,18 @@ def start_server(motors, maze):
     s.listen(5)
     print('Web Server đang chạy trên port 80...')
     
+    import gc
+    
     while True:
         try:
+            # Thu gom rác bộ nhớ để chống tràn RAM (Memory Leak) do tạo json liên tục
+            gc.collect()
+            
             conn, addr = s.accept()
+            
+            # Đặt timeout 2 giây để tránh bị treo (blocking) nếu trình duyệt mở connection mà không gửi data
+            conn.settimeout(2.0)
+            
             request = conn.recv(1024)
             request = str(request)
             
@@ -325,13 +459,17 @@ def start_server(motors, maze):
                 
             # Xử lý API /map
             if request.find('GET /map') == 2:
-                data = {
-                    "walls": maze.walls,
-                    "visited": getattr(maze, "visited", []),
-                    "x": maze.x,
-                    "y": maze.y,
-                    "heading": maze.heading
-                }
+                if maze is not None:
+                    data = {
+                        "walls": maze.walls,
+                        "visited": getattr(maze, "visited", []),
+                        "x": maze.x,
+                        "y": maze.y,
+                        "heading": maze.heading,
+                        "sensors": getattr(maze, "last_sensors", [0, 0, 0, 0])
+                    }
+                else:
+                    data = {"walls": [[0]*4 for _ in range(4)], "x":0, "y":0, "heading":1, "sensors": [0,0,0,0]}
                 response = json.dumps(data)
                 
                 conn.send('HTTP/1.1 200 OK\n')
@@ -343,7 +481,7 @@ def start_server(motors, maze):
                 
             # Xử lý lệnh START
             if request.find('GET /start') == 2:
-                maze.started = True
+                if maze is not None: maze.started = True
                 conn.send('HTTP/1.1 200 OK\n')
                 conn.send('Content-Type: text/plain\n')
                 conn.send('Connection: close\n\n')
@@ -353,25 +491,62 @@ def start_server(motors, maze):
                 
             # Xử lý lệnh RESET
             if request.find('GET /reset') == 2:
-                maze.reset_maze()
+                if maze is not None: maze.reset_maze()
                 conn.send('HTTP/1.1 200 OK\n')
                 conn.send('Content-Type: text/plain\n')
                 conn.send('Connection: close\n\n')
                 conn.sendall('Reset')
                 conn.close()
                 continue
+                
+            # Xử lý lệnh Điều Khiển Thủ Công (Căn Chỉnh)
+            if request.find('GET /cmd?action=') == 2:
+                start_idx = request.find('action=') + 7
+                end_idx = request.find(' HTTP')
+                action = request[start_idx:end_idx]
+                
+                if command_queue is not None:
+                    command_queue.append(action)
+                    
+                conn.send('HTTP/1.1 200 OK\n')
+                conn.send('Content-Type: text/plain\n')
+                conn.send('Connection: close\n\n')
+                conn.sendall('OK')
+                conn.close()
+                continue
 
-            # Phân tích lệnh điều khiển thủ công
-            if request.find('GET /forward') == 2:
-                motors.drive(config.BASE_SPEED, config.BASE_SPEED)
-            elif request.find('GET /backward') == 2:
-                motors.drive(-config.BASE_SPEED, -config.BASE_SPEED)
-            elif request.find('GET /left') == 2:
-                motors.drive(-config.BASE_SPEED, config.BASE_SPEED)
-            elif request.find('GET /right') == 2:
-                motors.drive(config.BASE_SPEED, -config.BASE_SPEED)
-            elif request.find('GET /stop') == 2:
-                motors.stop()
+            # Lấy thông số PID
+            if request.find('GET /get_pid') == 2:
+                data = {"kp": pid.kp, "kd": pid.kd, "lmult": config.MOTOR_LEFT_MULTIPLIER}
+                conn.send('HTTP/1.1 200 OK\n')
+                conn.send('Content-Type: application/json\n')
+                conn.send('Connection: close\n\n')
+                conn.sendall(json.dumps(data))
+                conn.close()
+                continue
+                
+            # Lưu thông số PID
+            if request.find('GET /set_pid') == 2:
+                try:
+                    # Parse parameters: /set_pid?kp=6.0&kd=6.0
+                    start_idx = request.find('?') + 1
+                    end_idx = request.find(' HTTP')
+                    params_str = request[start_idx:end_idx]
+                    params = params_str.split('&')
+                    for p in params:
+                        k, v = p.split('=')
+                        if k == 'kp': pid.kp = float(v)
+                        if k == 'kd': pid.kd = float(v)
+                        if k == 'lmult': config.MOTOR_LEFT_MULTIPLIER = float(v)
+                except Exception as e:
+                    print("Error parsing PID:", e)
+                
+                conn.send('HTTP/1.1 200 OK\n')
+                conn.send('Content-Type: text/plain\n')
+                conn.send('Connection: close\n\n')
+                conn.sendall('OK')
+                conn.close()
+                continue
                 
             # Trả về HTML cho trình duyệt (nếu request là trang chủ)
             if request.find('GET / ') == 2:
@@ -382,7 +557,9 @@ def start_server(motors, maze):
                 
             conn.close()
         except Exception as e:
+            print("[Web Server Error]:", e)
             try:
                 conn.close()
             except:
                 pass
+            time.sleep_ms(50)

@@ -52,7 +52,17 @@ def control_loop(sensors, encoders, motors, wall_pid, maze, navigator):
         print("Chế độ: THỦ CÔNG (Điều khiển qua Web)")
     
     try:
+        if not config.AUTO_MODE_ENABLED:
+            print(">>> Đợi 3 giây để ổn định mạng WiFi trước khi chạy động cơ...")
+            time.sleep(3)
+            
+        last_time = time.ticks_ms()
         while True:
+            current_time = time.ticks_ms()
+            dt = time.ticks_diff(current_time, last_time) / 1000.0
+            if dt <= 0: dt = 0.001
+            last_time = current_time
+
             if config.AUTO_MODE_ENABLED and not getattr(maze, 'started', False):
                 motors.stop()
                 print("Đang chờ lệnh START từ giao diện Web...")
@@ -60,15 +70,30 @@ def control_loop(sensors, encoders, motors, wall_pid, maze, navigator):
                     time.sleep(0.5)
                 print("Đã nhận lệnh START! Rút tay ra trong 2 giây...")
                 time.sleep(2)
+                
+                last_time = time.ticks_ms() # Reset lại thời gian sau khi chờ
                 continue
-            # Nếu đang ở chế độ thủ công, bỏ qua thuật toán mê cung
+                
+            # Nếu đang ở chế độ thủ công (AUTO_MODE_ENABLED = False)
+            # -> Chạy chế độ CHỈNH PID ĐI THẲNG VÔ TẬN
             if not config.AUTO_MODE_ENABLED:
-                time.sleep(0.1)
+                sensors.read_sensors()
+                error = sensors.get_steering_error()
+                correction = wall_pid.compute(error, dt)
+                
+                left_speed = config.BASE_SPEED + correction
+                right_speed = config.BASE_SPEED - correction
+                
+                motors.drive(left_speed, right_speed)
+                time.sleep_ms(10)
                 continue
                 
             # 1. Đọc tường xung quanh khi đang đứng ở tâm ô
             sensors.read_sensors()
             has_left, has_front, has_right = sensors.check_walls_for_maze()
+            
+            # Lưu lại giá trị cảm biến để hiển thị trên web
+            maze.last_sensors = sensors.values[:]
             
             heading = maze.heading
             
@@ -98,39 +123,20 @@ def control_loop(sensors, encoders, motors, wall_pid, maze, navigator):
             # 3. Lấy hướng đi tối ưu từ Flood Fill
             best_heading = maze.get_best_move()
             
-            # 4. Xoay xe và di chuyển tới TÂM ô tiếp theo
+            # 4. Xoay xe tại chỗ theo hướng mới
             rel_dir = get_relative_direction(heading, best_heading)
             
-            # Bán kính cua
-            R = 40.0
-            
-            if getattr(maze, 'is_first_move', False):
-                # Lần đầu tiên: Xe xuất phát từ TÂM ô
-                if rel_dir == 1: navigator.turn_right()
-                elif rel_dir == -1: navigator.turn_left()
-                elif rel_dir == 2: navigator.turn_around()
+            if rel_dir == 1:
+                navigator.turn_right()
+            elif rel_dir == -1:
+                navigator.turn_left()
+            elif rel_dir == 2:
+                navigator.turn_around()
                 
-                # Di chuyển đến Decision Point của ô tiếp theo
-                navigator.move_straight(config.CELL_SIZE - R)
-                maze.is_first_move = False
-            else:
-                # Các lần sau: Xe đang ở Decision Point
-                if rel_dir == 0:
-                    # Đi thẳng sang Decision Point tiếp theo
-                    navigator.move_straight(config.CELL_SIZE)
-                elif rel_dir == 1:
-                    # Rẽ phải vòng cung rồi tới Decision Point tiếp theo
-                    navigator.curve_turn_only(90, R)
-                    navigator.move_straight(config.CELL_SIZE - 2*R)
-                elif rel_dir == -1:
-                    # Rẽ trái vòng cung rồi tới Decision Point tiếp theo
-                    navigator.curve_turn_only(-90, R)
-                    navigator.move_straight(config.CELL_SIZE - 2*R)
-                elif rel_dir == 2:
-                    # Quay đầu: Tiến lên Tâm, xoay 180, lùi về Decision Point
-                    navigator.move_straight(R)
-                    navigator.turn_around()
-                    navigator.move_straight(config.CELL_SIZE - R)
+            # 5. Tiến thẳng 1 ô để đến TÂM ô tiếp theo
+            navigator.move_straight(config.CELL_SIZE)
+            motors.stop() # Dừng xe lại để ô tiếp theo đọc cảm biến tĩnh
+            time.sleep_ms(150) # Nghỉ một chút cho xe hết rung lắc
                 
             # Cập nhật hướng thực tế của xe sau khi xoay
             maze.heading = best_heading
@@ -142,18 +148,24 @@ def control_loop(sensors, encoders, motors, wall_pid, maze, navigator):
         motors.stop()
         print("Đã dừng khẩn cấp!")
 
-def webserver_loop(motors, maze):
+def webserver_loop(motors, maze, wall_pid):
     import webserver
     print("[Ngầm] Khởi chạy Web Server...")
     # Chạy HTTP Server, hàm này sẽ block (chạy vô tận) trong luồng này
-    webserver.start_server(motors, maze)
+    webserver.start_server(motors, maze, wall_pid)
 
 def main():
     # Khởi tạo phần cứng 1 lần để dùng chung
     sensors, encoders, motors, wall_pid, maze, navigator = setup()
     
-    # Khởi động luồng Web Server ở background, truyền đối tượng motors và maze vào
-    _thread.start_new_thread(webserver_loop, (motors, maze))
+    # Tăng kích thước stack cho luồng Web Server để tránh lỗi Stack Overflow khi xử lý JSON
+    try:
+        _thread.stack_size(8192)
+    except:
+        pass
+        
+    # Khởi động luồng Web Server ở background, truyền đối tượng motors, maze và wall_pid vào
+    _thread.start_new_thread(webserver_loop, (motors, maze, wall_pid))
     
     # Chạy luồng điều khiển xe ở luồng chính
     control_loop(sensors, encoders, motors, wall_pid, maze, navigator)

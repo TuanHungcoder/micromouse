@@ -26,6 +26,10 @@ class SensorArray:
         # Mảng lưu giá trị sạch sau khi xử lý nhiễu
         # Quy ước: [Trái, Trước-Trái, Trước-Phải, Phải]
         self.values = [0, 0, 0, 0]
+        
+        # Biến lưu trữ giá trị quét động (đã qua bộ lọc Gaussian) khi xe di chuyển
+        self.scanned_left = None
+        self.scanned_right = None
 
     def read_sensors(self):
         """Thuật toán đọc cảm biến và khử nhiễu ánh sáng môi trường"""
@@ -40,7 +44,7 @@ class SensorArray:
 
         # 2. Đọc mức sáng thực tế (Lúc BẬT LED phát)
         self.ir_en.value(1)
-        time.sleep_us(60) # Chờ LED sáng hết công suất
+        time.sleep_us(800) # Tăng từ 60us lên 800us để bóng thu quang (Phototransistor) có đủ thời gian mở
         for i in range(4): 
             raw[i] = self.adcs[i].read()
         self.ir_en.value(0) # Tắt ngay lập tức để tránh nóng bóng LED
@@ -64,12 +68,15 @@ class SensorArray:
             return left_val - right_val # Lấy hiệu số làm độ lệch
             
         # Trường hợp 2: Chỉ bám được tường trái
+        # NHÂN 2 SAI SỐ: Vì khi có 2 tường, sai số = (L + d) - (R - d) = 2d. 
+        # Nhưng khi có 1 tường, sai số chỉ là (L + d) - TARGET = 1d. 
+        # Phải nhân 2 để lực hút về tường mạnh ngang với lúc có 2 tường.
         elif left_val > THRESHOLD:
-            return left_val - TARGET
+            return (left_val - TARGET) * 2
             
         # Trường hợp 3: Chỉ bám được tường phải
         elif right_val > THRESHOLD:
-            return TARGET - right_val
+            return (TARGET - right_val) * 2
             
         # Trường hợp 4: Đường trống, ngã tư -> Không có sai số
         return 0
@@ -79,11 +86,30 @@ class SensorArray:
         SIDE_TH = config.SIDE_WALL_THRESHOLD
         FRONT_TH = config.FRONT_WALL_THRESHOLD
         
-        has_left = self.values[0] > SIDE_TH
-        has_right = self.values[3] > SIDE_TH
+        # Ưu tiên dùng dữ liệu quét động (Gaussian) nếu có
+        if self.scanned_left is not None:
+            has_left = self.scanned_left > SIDE_TH
+            self.values[0] = int(self.scanned_left) # Cập nhật cho UI và Log
+            self.scanned_left = None  # Xóa sau khi dùng để không bị lặp lại ở ô tĩnh tiếp theo
+        else:
+            has_left = self.values[0] > SIDE_TH
+            
+        if self.scanned_right is not None:
+            has_right = self.scanned_right > SIDE_TH
+            self.values[3] = int(self.scanned_right) # Cập nhật cho UI và Log
+            self.scanned_right = None
+        else:
+            has_right = self.values[3] > SIDE_TH
         
-        # Tường phía trước dùng trung bình cộng của 2 mắt cảm biến chéo
-        front_avg = (self.values[1] + self.values[2]) / 2
-        has_front = front_avg > FRONT_TH
+        FL = self.values[1]
+        FR = self.values[2]
+        
+        # CHỐNG NHẬN NHẦM LỐI ĐI THÀNH TƯỜNG TRƯỚC:
+        # Vì mắt trước là mắt chéo, nếu đường trống nhưng xe đi hơi lệch, 1 mắt chéo sẽ đập 
+        # vào tường hông (trả về > 800), mắt kia chiếu ra khoảng không (trả về < 100).
+        # Trung bình cộng vẫn > 500 khiến xe tưởng có tường trước.
+        # Khắc phục: Yêu cầu CẢ 2 mắt chéo đều phải thấy vật cản (> 250) mới xác nhận là tường trước.
+        front_avg = (FL + FR) / 2
+        has_front = (FL > 250 and FR > 250) and (front_avg > FRONT_TH)
         
         return has_left, has_front, has_right
