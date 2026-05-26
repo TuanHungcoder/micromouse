@@ -43,12 +43,14 @@ TICKS_PER_REV = 1400      # Tương đương: 7 * 2 * 100 = 1400
 
 WHEEL_DIAMETER = 34 # Đường kính bánh xe (mm)
 WHEEL_DISTANCE = 70 # Khoảng cách giữa 2 bánh xe (mm) - Dùng để tính góc quay
-CELL_SIZE = 180     # Chiều dài 1 ô vuông của mê cung (mm)
+SENSOR_OFFSET = 20  # Khoảng cách từ trục bánh xe (tâm xe) đến mắt cảm biến hông (mm)
+OVERSHOOT_COMPENSATION = 10 # Bù trừ độ trễ cảm biến và quán tính (mm). Tăng số này nếu xe đi lố tâm.
+CELL_SIZE = 170     # Chiều dài 1 ô vuông của mê cung (mm)
 
 # --- THÔNG SỐ PID BÁM TƯỜNG (Dùng Cảm biến hồng ngoại) ---
-KP = 0.007   # Đã giảm KP xuống 6 để bớt gắt
+KP = 0.01   # Đã giảm KP xuống 6 để bớt gắt
 KI = 0.0   # TUYỆT ĐỐI KHÔNG DÙNG KI (Nguyên nhân chính làm xe lắc liên tục)
-KD = 0.0004  # Tăng KD lên bằng KP để dập tắt dao động
+KD = 0.0005  # Tăng KD lên bằng KP để dập tắt dao động
 
 # --- CẤU HÌNH WIFI & ĐIỀU KHIỂN ---
 WIFI_SSID = "Micromouse"

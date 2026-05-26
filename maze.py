@@ -186,3 +186,68 @@ class MazeSolver:
                         if self.distances[ny][nx] == 255:
                             self.distances[ny][nx] = self.distances[cy][cx] + 1
                             queue.append((nx, ny))
+
+    def get_relative_direction(self, current_heading, target_heading):
+        """Tính toán hướng rẽ tương đối từ hướng tuyệt đối"""
+        if target_heading == current_heading: return 0 # Đi thẳng
+        elif (current_heading == NORTH and target_heading == EAST) or \
+             (current_heading == EAST and target_heading == SOUTH) or \
+             (current_heading == SOUTH and target_heading == WEST) or \
+             (current_heading == WEST and target_heading == NORTH):
+            return 1 # Rẽ phải
+        elif (current_heading == NORTH and target_heading == WEST) or \
+             (current_heading == WEST and target_heading == SOUTH) or \
+             (current_heading == SOUTH and target_heading == EAST) or \
+             (current_heading == EAST and target_heading == NORTH):
+            return -1 # Rẽ trái
+        else:
+            return 2 # Quay đầu 180 độ
+
+    def get_shortest_path_actions(self, start_x, start_y, start_heading, target_x, target_y):
+        """Tính toán chuỗi hành động chạy liên tục từ điểm xuất phát đến đích"""
+        # Tạm thời đổi target để flood fill chạy đúng
+        original_target_x, original_target_y = self.target_x, self.target_y
+        self.target_x, self.target_y = target_x, target_y
+        self.flood_fill_update()
+        
+        actions = []
+        cx, cy, cheading = start_x, start_y, start_heading
+        
+        while (cx, cy) != (target_x, target_y):
+            # Tính hướng đi tốt nhất tại ô (cx, cy)
+            temp_x, temp_y, temp_heading = self.x, self.y, self.heading
+            self.x, self.y, self.heading = cx, cy, cheading
+            best_heading = self.get_best_move()
+            self.x, self.y, self.heading = temp_x, temp_y, temp_heading
+            
+            # Tính hướng rẽ
+            rel_dir = self.get_relative_direction(cheading, best_heading)
+            
+            if rel_dir == 0:
+                # Đang đi thẳng
+                if len(actions) > 0 and isinstance(actions[-1], int):
+                    actions[-1] += 1
+                else:
+                    actions.append(1)
+            else:
+                # Rẽ (R: Right, L: Left, U: U-turn)
+                if rel_dir == 1: actions.append('R')
+                elif rel_dir == -1: actions.append('L')
+                elif rel_dir == 2: actions.append('U')
+                
+                # Sau khi rẽ thì tiến 1 ô (Tâm của ô tiếp theo)
+                actions.append(1)
+                
+            cheading = best_heading
+            if cheading == NORTH: cy += 1
+            elif cheading == SOUTH: cy -= 1
+            elif cheading == EAST: cx += 1
+            elif cheading == WEST: cx -= 1
+            
+            if len(actions) > 100: break # An toàn
+                
+        # Phục hồi target cũ
+        self.target_x, self.target_y = original_target_x, original_target_y
+        self.flood_fill_update()
+        
+        return actions

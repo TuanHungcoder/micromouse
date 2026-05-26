@@ -13,11 +13,27 @@ class RobotNavigator:
         self.wheel_circumference = config.WHEEL_DIAMETER * math.pi
         self.ticks_per_mm = config.TICKS_PER_REV / self.wheel_circumference
         
-    def move_straight(self, distance_mm):
-        """Di chuyển thẳng một quãng đường cho trước, có sử dụng PID bám tường"""
+        # Lưu trạng thái chạy liên tục để không bị mất xung dư khi gọi hàm liên tiếp
+        self.was_continuous = False
+        self.last_target_ticks = 0
+        
+    def move_straight(self, distance_mm, continuous=False):
+        """Di chuyển thẳng, hỗ trợ khử sai số dọc (Edge Detection) và không phanh nếu continuous=True"""
         target_ticks = distance_mm * self.ticks_per_mm
         
-        self.encoders.reset_all()
+        # Nếu đang trong chuỗi chạy liên tục, KHÔNG reset encoder về 0
+        # Mà chỉ trừ đi quãng đường của ô trước. Điều này giúp giữ lại phần xung dư (overshoot/coasting)
+        # sinh ra trong quá trình main.py xử lý thuật toán!
+        if self.was_continuous:
+            self.encoders.left.ticks -= int(self.last_target_ticks)
+            self.encoders.right.ticks -= int(self.last_target_ticks)
+        else:
+            self.encoders.reset_all()
+            
+        self.was_continuous = continuous
+        self.last_target_ticks = target_ticks
+        self.edge_detected_this_cell = False
+        
         self.pid.reset()
         
         last_time = time.ticks_ms()
@@ -27,10 +43,10 @@ class RobotNavigator:
         right_sum = 0.0
         weight_sum = 0.0
         
-        # Thông số phân bố chuẩn: Đỉnh (mu) ở giữa ô
-        mu = target_ticks / 2.0
-        # Giảm độ sắc nhọn của tâm (flatten curve) bằng cách tăng sigma
-        sigma = target_ticks / 2.5
+        # Biến cho Edge Detection (Nhận diện sườn xung để khử sai số tĩnh)
+        prev_left = self.sensors.values[0]
+        prev_right = self.sensors.values[3]
+        TICKS_PER_CELL = config.CELL_SIZE * self.ticks_per_mm
         
         while True:
             current_time = time.ticks_ms()
@@ -47,15 +63,59 @@ class RobotNavigator:
             # Đọc cảm biến để PID bám tường
             self.sensors.read_sensors()
             
-            # === BỘ LỌC KHÔNG GIAN GAUSSIAN ===
-            if sigma > 0:
-                weight = math.exp(-((current_ticks - mu)**2) / (2 * sigma**2))
-            else:
-                weight = 1.0
+            left_val = self.sensors.values[0]
+            right_val = self.sensors.values[3]
+            
+            # === EDGE DETECTION (DÙNG CẢM BIẾN LÀM MỐC CHO ENCODER) ===
+            EDGE_THRESHOLD = config.SIDE_WALL_THRESHOLD
+            
+            # Cờ đánh dấu đã nhận diện mép tường trong ô này chưa
+            if not hasattr(self, 'edge_detected_this_cell'):
+                self.edge_detected_this_cell = False
                 
-            left_sum += self.sensors.values[0] * weight
-            right_sum += self.sensors.values[3] * weight
-            weight_sum += weight
+            if not self.edge_detected_this_cell:
+                # Cửa sổ quét hẹp lại (25% - 55% quãng đường) để tránh xe lắc lư (wobble) gây nhiễu
+                # Ranh giới vật lý nằm ở khoảng 38% (65mm / 170mm).
+                progress = current_ticks / (config.CELL_SIZE * self.ticks_per_mm)
+                
+                if 0.25 < progress < 0.55:
+                    edge_triggered = False
+                    
+                    # Phải tuột xuống dưới 50% Threshold mới được coi là có khoảng trống (tránh nhiễu)
+                    if (prev_left > EDGE_THRESHOLD and left_val < EDGE_THRESHOLD * 0.5) or \
+                       (prev_left < EDGE_THRESHOLD * 0.5 and left_val > EDGE_THRESHOLD):
+                        edge_triggered = True
+                        
+                    if (prev_right > EDGE_THRESHOLD and right_val < EDGE_THRESHOLD * 0.5) or \
+                       (prev_right < EDGE_THRESHOLD * 0.5 and right_val > EDGE_THRESHOLD):
+                        edge_triggered = True
+                        
+                    if edge_triggered:
+                        # Vị trí thực tế của tâm bánh xe khi cảm biến vừa qua mép tường
+                        actual_dist_mm = (config.CELL_SIZE / 2.0) - config.SENSOR_OFFSET + getattr(config, 'OVERSHOOT_COMPENSATION', 10)
+                        actual_ticks = actual_dist_mm * self.ticks_per_mm
+                        
+                        # ÉP BUỘC Encoder phải nhận giá trị thực tế này
+                        if current_ticks > 0:
+                            correction_factor = actual_ticks / current_ticks
+                            self.encoders.left.ticks = int(self.encoders.left.ticks * correction_factor)
+                            self.encoders.right.ticks = int(self.encoders.right.ticks * correction_factor)
+                            
+                        self.edge_detected_this_cell = True
+            
+            prev_left = left_val
+            prev_right = right_val
+            # ======================================================
+            
+            # === BỘ LỌC KHÔNG GIAN TÌM TƯỜNG Ô MỚI ===
+            # Theo ý tưởng của bạn: Bắt đầu lấy trung bình TỪ LÚC xảy ra sự thay đổi đột ngột (mép tường)
+            # Ta cộng thêm 20mm vào mốc bắt đầu để mắt cảm biến đi lố qua hẳn cái cột vách tường, tránh đọc nhầm cột thành tường!
+            boundary_ticks = (config.CELL_SIZE / 2.0 - config.SENSOR_OFFSET + 20) * self.ticks_per_mm
+            
+            if (self.edge_detected_this_cell and current_ticks > actual_ticks + 20*self.ticks_per_mm) or current_ticks > boundary_ticks:
+                left_sum += left_val
+                right_sum += right_val
+                weight_sum += 1.0  # Dùng weight_sum như một biến đếm (read_count)
             # ==================================
             
             # === LOGIC DỪNG KẾT HỢP (SENSOR FUSION) ===
@@ -63,19 +123,22 @@ class RobotNavigator:
             FR = self.sensors.values[2]
             front_avg = (FL + FR) / 2.0
             
-            # Phát hiện tường trước từ xa (dựa vào FRONT_WALL_THRESHOLD)
+            # Phát hiện tường trước từ xa
             has_front_wall_far = (FL > 250 and FR > 250) and (front_avg > config.FRONT_WALL_THRESHOLD)
             
-            if has_front_wall_far:
+            # Tính năng Khám Phá Liên Tục (Continuous Exploration):
+            # HỦY bỏ trạng thái continuous NGAY LẬP TỨC nếu bất ngờ phát hiện tường trước!
+            if has_front_wall_far and continuous:
+                continuous = False
+                
+            if has_front_wall_far and not continuous:
                 # Có tường trước: Tạm gác Encoder, tin tưởng tuyệt đối vào Cảm biến!
-                # Cho xe chạy đến khi giá trị cảm biến đạt TARGET_FRONT_WALL_VAL (Giá trị đo được khi ở đúng tâm ô)
                 if front_avg >= config.TARGET_FRONT_WALL_VAL:
                     break
-                # An toàn: Nếu Encoder chạy lố quá 20% mà vẫn chưa đạt target thì dừng (chống kẹt)
                 elif current_ticks > target_ticks * 1.2:
                     break
             else:
-                # Đường trước trống: Bắt buộc dừng hoàn toàn dựa vào Encoder
+                # Đường trước trống hoặc đang chạy Continuous: Dùng Encoder
                 if current_ticks >= target_ticks:
                     break
             # ==========================================
@@ -86,13 +149,14 @@ class RobotNavigator:
             # Tính toán tốc độ gốc (Trapezoidal Velocity Profile - Giảm tốc mượt mà)
             current_base_speed = config.BASE_SPEED
             remaining_ticks = target_ticks - current_ticks
-            brake_distance_ticks = 40.0 * self.ticks_per_mm # Bắt đầu giảm tốc trước 40mm
+            brake_distance_ticks = 40.0 * self.ticks_per_mm # Khôi phục lại 40mm
             
-            if not has_front_wall_far and 0 < remaining_ticks < brake_distance_ticks:
-                # Ép tốc độ giảm dần từ 100% xuống 30% khi gần đến đích
-                min_speed_ratio = 0.3
-                ratio = min_speed_ratio + (1.0 - min_speed_ratio) * (remaining_ticks / brake_distance_ticks)
-                current_base_speed = config.BASE_SPEED * ratio
+            # CHỈ GIẢM TỐC NẾU KHÔNG CHẠY CONTINUOUS
+            if not continuous:
+                if not has_front_wall_far and 0 < remaining_ticks < brake_distance_ticks:
+                    min_speed_ratio = 0.3 # Khôi phục 30% để tránh lỗi tụt áp / stall motor (không đủ lực kéo)
+                    ratio = min_speed_ratio + (1.0 - min_speed_ratio) * (remaining_ticks / brake_distance_ticks)
+                    current_base_speed = config.BASE_SPEED * ratio
                 
             left_speed = current_base_speed + correction
             right_speed = current_base_speed - correction
@@ -100,15 +164,16 @@ class RobotNavigator:
             self.motors.drive(left_speed, right_speed)
             time.sleep_ms(10)
             
-        # GIẢM TỐC TỪ TỪ (Soft Deceleration) ĐỂ BẢO VỆ MẠCH CẦU H TB6612
-        # Vì xe đã được giảm tốc chủ động xuống còn rất chậm (30%) trước khi thoát vòng lặp,
-        # bước này chỉ làm nhiệm vụ hãm nốt lượng tốc độ nhỏ nhoi còn lại trong 100ms.
-        for i in range(4, -1, -1):
-            ratio = i / 4.0
-            self.motors.drive(left_speed * ratio, right_speed * ratio)
-            time.sleep_ms(25)
+        # NẾU CHẠY CONTINUOUS, THOÁT NGAY LẬP TỨC ĐỂ LAO VÀO GÓC CUA!
+        if continuous:
+            return
             
-        self.motors.stop()  # Trả về Coast an toàn
+        # DỪNG CHÍNH XÁC TẠI TÂM Ô
+        # Áp dụng phanh điện từ (Short Brake) trong thời gian siêu ngắn (50ms)
+        # Vì xe đã bò rất chậm (15%) nên phanh lúc này cực kỳ an toàn, không giật, không hại mạch
+        self.motors.brake()
+        time.sleep_ms(50)
+        self.motors.stop()  # Trả về Coast an toàn để bảo vệ IC cầu H
             
         # Tính trung bình có trọng số sau khi hoàn thành 1 ô
         if weight_sum > 0:
@@ -133,6 +198,8 @@ class RobotNavigator:
         target_ticks_outer = arc_length_outer * self.ticks_per_mm
         
         self.encoders.reset_all()
+        self.was_continuous = False
+
         
         while True:
             left_ticks = abs(self.encoders.left.get_ticks())
@@ -184,6 +251,8 @@ class RobotNavigator:
         target_ticks = arc_length_mm * self.ticks_per_mm
         
         self.encoders.reset_all()
+        self.was_continuous = False
+
         
         # Tốc độ quay (Chậm hơn đi thẳng để đảm bảo chính xác)
         turn_speed = config.BASE_SPEED * 0.8

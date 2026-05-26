@@ -123,8 +123,8 @@ def control_loop(sensors, encoders, motors, wall_pid, maze, navigator):
             # 3. Lấy hướng đi tối ưu từ Flood Fill
             best_heading = maze.get_best_move()
             
-            # 4. Xoay xe tại chỗ theo hướng mới
-            rel_dir = get_relative_direction(heading, best_heading)
+            # 4. Xoay xe tại chỗ theo hướng mới (Khám phá chậm)
+            rel_dir = maze.get_relative_direction(heading, best_heading)
             
             if rel_dir == 1:
                 navigator.turn_right()
@@ -133,10 +133,24 @@ def control_loop(sensors, encoders, motors, wall_pid, maze, navigator):
             elif rel_dir == 2:
                 navigator.turn_around()
                 
-            # 5. Tiến thẳng 1 ô để đến TÂM ô tiếp theo
-            navigator.move_straight(config.CELL_SIZE)
-            motors.stop() # Dừng xe lại để ô tiếp theo đọc cảm biến tĩnh
-            time.sleep_ms(150) # Nghỉ một chút cho xe hết rung lắc
+            # 5. DỰ ĐOÁN HƯỚNG ĐI TIẾP THEO (Tương lai)
+            next_x, next_y = update_position(maze.x, maze.y, best_heading)
+            temp_x, temp_y, temp_heading = maze.x, maze.y, maze.heading
+            
+            # Đặt xe vào ô tiếp theo để xem Flood Fill bảo đi đâu tiếp
+            maze.x, maze.y, maze.heading = next_x, next_y, best_heading
+            future_heading = maze.get_best_move()
+            maze.x, maze.y, maze.heading = temp_x, temp_y, temp_heading
+            
+            # Nếu tương lai vẫn là đi thẳng -> Chạy liên tục (Không phanh ở tâm ô)
+            will_go_straight = (future_heading == best_heading)
+            
+            # 6. Tiến thẳng 1 ô để đến TÂM ô tiếp theo
+            navigator.move_straight(config.CELL_SIZE, continuous=will_go_straight)
+            
+            # Nếu vừa chạy có phanh (continuous=False), nghỉ một chút cho xe hết rung lắc
+            if not will_go_straight:
+                time.sleep_ms(150)
                 
             # Cập nhật hướng thực tế của xe sau khi xoay
             maze.heading = best_heading
