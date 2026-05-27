@@ -42,8 +42,8 @@ MOTOR_BASE_TICKS = 7      # Số xung trên 1 vòng quay gốc của động cơ
 TICKS_PER_REV = 1400      # Tương đương: 7 * 2 * 100 = 1400
 
 WHEEL_DIAMETER = 34 # Đường kính bánh xe (mm)
-WHEEL_DISTANCE = 70 # Khoảng cách giữa 2 bánh xe (mm) - Dùng để tính góc quay
-SENSOR_OFFSET = 20  # Khoảng cách từ trục bánh xe (tâm xe) đến mắt cảm biến hông (mm)
+WHEEL_DISTANCE = 93 # Khoảng cách giữa 2 bánh xe (mm) - Dùng để tính góc quay
+SENSOR_OFFSET = 60  # Khoảng cách từ trục bánh xe (tâm xe) đến mắt cảm biến hông (mm)
 OVERSHOOT_COMPENSATION = 10 # Bù trừ độ trễ cảm biến và quán tính (mm). Tăng số này nếu xe đi lố tâm.
 CELL_SIZE = 170     # Chiều dài 1 ô vuông của mê cung (mm)
 
