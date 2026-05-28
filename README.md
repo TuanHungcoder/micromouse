@@ -26,3 +26,6 @@ Dự án phát triển robot giải mê cung sử dụng vi điều khiển ESP3
 *   Hỗ trợ đa luồng (Threading) cho web server và bộ điều khiển chính.
 *   Ngưỡng cảm biến nhận tường (Threshold): Cần hiệu chỉnh lại khi thay đổi môi trường ánh sáng.
 
+## Demo
+
+[![Xem video demo robot Micromouse](demo/demo_thumbnail.jpg)](demo/micromouse_demo.mp4)
